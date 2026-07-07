@@ -18,13 +18,13 @@ def processar_dados(caminho_raw: str, caminho_saida: str) -> None:
         # Extrai o ano do nome do arquivo (ex: finbra_2020.csv -> 2020)
         ano = int(arquivo.stem.split("_")[-1])
         
-        df_lazy = pl.scan_csv(
+        df_lazy = pl.read_csv(
             str(arquivo),
             separator=';',
             encoding='ISO-8859-1',
             skip_rows=3,
             ignore_errors=True
-        )
+        ).lazy()
         
         df_lazy = df_lazy.with_columns(
             pl.col("Valor").str.replace(",", ".").cast(pl.Float64),
