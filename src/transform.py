@@ -31,16 +31,22 @@ def processar_dados(caminho_raw: str, caminho_saida: str) -> None:
             pl.lit(ano).alias("ano")
         )
         
-        # Trata strings nulas e limpa a coluna Conta
+        # Trata strings nulas
         df_lazy = df_lazy.with_columns(
             pl.col(pl.Utf8).fill_null("")
         )
         
-        # Filtra os totais agregados para evitar contagem dupla e ignora as rubricas FU
-        df_lazy = df_lazy.filter(
-            ~pl.col("Conta").is_in(["Despesas Exceto Intraorçamentárias", "Despesas Intraorçamentárias"]) &
-            ~pl.col("Conta").str.contains(r"^FU.*")
+        # Classifica a rubrica orçamentária e remove as linhas de totais gerais e residuais (ex: FU)
+        df_lazy = df_lazy.with_columns(
+            pl.when(pl.col("Conta").str.contains(r"^\d{2}\.\d{3} -"))
+            .then(pl.lit("Subfunção"))
+            .when(pl.col("Conta").str.contains(r"^\d{2} -"))
+            .then(pl.lit("Função"))
+            .otherwise(pl.lit("Outros"))
+            .alias("Nivel")
         )
+        
+        df_lazy = df_lazy.filter(pl.col("Nivel") != "Outros")
         
         frames.append(df_lazy)
     

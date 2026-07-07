@@ -25,7 +25,8 @@ def gerar_base_analitica(caminho_silver: str, caminho_gold: str) -> None:
                 "Cod.IBGE" AS Cod_IBGE,
                 UF,
                 População,
-                substring(Conta, 1, 2) AS Grupo_Funcional,
+                Conta,
+                Nivel,
                 ano,
                 Coluna,
                 Valor
@@ -35,14 +36,15 @@ def gerar_base_analitica(caminho_silver: str, caminho_gold: str) -> None:
             PIVOT base
             ON Coluna IN ('Despesas Empenhadas', 'Despesas Pagas')
             USING SUM(Valor)
-            GROUP BY Instituição, Cod_IBGE, UF, População, Grupo_Funcional, ano
+            GROUP BY Instituição, Cod_IBGE, UF, População, Conta, Nivel, ano
         )
         SELECT 
             Instituição,
             Cod_IBGE,
             UF,
             População,
-            Grupo_Funcional,
+            Conta,
+            Nivel,
             ano,
             COALESCE("Despesas Empenhadas", 0) AS Despesas_Empenhadas,
             COALESCE("Despesas Pagas", 0) AS Despesas_Pagas,
