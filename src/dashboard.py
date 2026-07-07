@@ -24,7 +24,7 @@ def main():
         .stApp {
             background-color: #f8f9fa;
         }
-        h1, h2, h3, h4, h5, h6, p, span, label {
+        h1, h2, h3, h4, h5, h6, p {
             color: #212529 !important;
             font-family: 'Segoe UI', system-ui, sans-serif;
         }
@@ -32,10 +32,11 @@ def main():
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
         }
-        /* Estiliza os containers de filtros */
-        div[data-testid="column"] {
-            background-color: transparent;
-        }
+        /* Oculta os menus do Streamlit em inglês para manter o white-label */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
         /* Ajusta o espaçamento do título do gráfico */
         .chart-title {
             font-size: 1.1rem;
@@ -85,7 +86,9 @@ def main():
         with f_col1:
             ano_selecionado = st.selectbox("Exercício", anos_disponiveis, index=idx_padrao)
         with f_col2:
-            capitais_disponiveis = sorted(dados["Capital_Limpa"].unique().tolist())
+            # Filtra as capitais válidas para o ano selecionado
+            dados_ano = dados[dados["ano"] == ano_selecionado]
+            capitais_disponiveis = sorted(dados_ano["Capital_Limpa"].unique().tolist())
             capital_selecionada = st.selectbox("Capital", capitais_disponiveis)
         with f_col3:
             nivel_selecionado = st.selectbox("Nível", ["Função", "Subfunção"])
@@ -157,12 +160,20 @@ def main():
                 height=500
             )
             fig.update_layout(
+                font=dict(color="#212529", family="Segoe UI, sans-serif"),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=20, r=20, t=10, b=10),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(gridcolor="#e9ecef"),
-                yaxis=dict(categoryorder="total ascending", gridcolor="rgba(0,0,0,0)")
+                legend=dict(
+                    orientation="h", 
+                    yanchor="bottom", 
+                    y=1.02, 
+                    xanchor="right", 
+                    x=1,
+                    font=dict(color="#212529")
+                ),
+                xaxis=dict(gridcolor="#e9ecef", tickfont=dict(color="#212529")),
+                yaxis=dict(categoryorder="total ascending", gridcolor="rgba(0,0,0,0)", tickfont=dict(color="#212529"))
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -190,23 +201,35 @@ def main():
             
             # Consolida dados históricos
             df_historico_final = df_evolucao_cap.merge(df_evolucao_nac[["ano", "Taxa_Media_Nacional"]], on="ano")
+            df_historico_final = df_historico_final.rename(columns={
+                "Taxa_Municipio": "Taxa do Município",
+                "Taxa_Media_Nacional": "Média Nacional"
+            })
             
             fig_linha = px.line(
                 df_historico_final,
                 x="ano",
-                y=["Taxa_Municipio", "Taxa_Media_Nacional"],
+                y=["Taxa do Município", "Média Nacional"],
                 labels={"ano": "Ano", "value": "Taxa de Execução (%)", "variable": "Legenda"},
-                color_discrete_map={"Taxa_Municipio": "#1f497d", "Taxa_Media_Nacional": "#ed7d31"},
+                color_discrete_map={"Taxa do Município": "#1f497d", "Média Nacional": "#ed7d31"},
                 height=220
             )
             
             fig_linha.update_layout(
+                font=dict(color="#212529", family="Segoe UI, sans-serif"),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=20, r=20, t=10, b=10),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(gridcolor="#e9ecef", tickmode="linear"),
-                yaxis=dict(gridcolor="#e9ecef", range=[0, 110])
+                legend=dict(
+                    orientation="h", 
+                    yanchor="bottom", 
+                    y=1.02, 
+                    xanchor="right", 
+                    x=1,
+                    font=dict(color="#212529")
+                ),
+                xaxis=dict(gridcolor="#e9ecef", tickmode="linear", tickfont=dict(color="#212529")),
+                yaxis=dict(gridcolor="#e9ecef", range=[0, 110], tickfont=dict(color="#212529"))
             )
             
             st.plotly_chart(fig_linha, use_container_width=True)
