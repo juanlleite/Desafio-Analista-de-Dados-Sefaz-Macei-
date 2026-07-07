@@ -1,0 +1,4 @@
+polars==0.20.*
+duckdb==0.10.*
+streamlit==1.32.*
+plotly==5.19.*

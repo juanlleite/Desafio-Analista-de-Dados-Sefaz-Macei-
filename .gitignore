@@ -48,4 +48,5 @@ desktop.ini
 # dados_extraidos/
 # *.parquet
 # saidas/
+dados_processados/
 # ==========================================================================
