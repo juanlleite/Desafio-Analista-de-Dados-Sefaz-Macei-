@@ -1,4 +1,7 @@
-polars==0.20.*
-duckdb==0.10.*
-streamlit==1.32.*
-plotly==5.19.*
+streamlit==1.32.2
+polars==0.20.31
+pandas==2.3.3
+numpy==1.26.4
+plotly==5.19.0
+duckdb==0.10.3
+pyarrow==24.0.0

@@ -52,11 +52,11 @@ def main() -> None:
     }
     section[data-testid="stSidebar"] label {
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 0.7rem !important;
+        font-size: 0.76rem !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.06em !important;
-        color: #71717a !important;
+        color: #27272a !important; /* Cinza escuro de alto contraste */
         margin-bottom: 6px !important;
         margin-top: 12px !important;
     }
@@ -71,7 +71,7 @@ def main() -> None:
     
     .chart-title {
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 0.78rem;
+        font-size: 0.88rem; /* Rótulo maior para melhor legibilidade */
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -153,10 +153,10 @@ def main() -> None:
     /* Rótulos e valores de telemetria baseados em JetBrains Mono */
     .kpi-title {
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 0.65rem !important;
+        font-size: 0.76rem !important; /* Aumentado de 0.65rem para 0.76rem */
         font-weight: 700 !important;
         text-transform: uppercase !important;
-        color: #71717a !important;
+        color: #27272a !important; /* Cinza escuro de alto contraste (antes #71717a) */
         letter-spacing: 0.08em !important;
     }
     .kpi-value {
@@ -164,6 +164,34 @@ def main() -> None:
         font-size: 1.15rem !important;
         font-weight: 700 !important;
         color: #18181b !important;
+    }
+
+    /* Caixa de Insights e Diagnóstico do Analista (1ª Pessoa) */
+    .insight-card {
+        background-color: #eff6ff; /* Fundo azul suave */
+        border: 1px solid #bfdbfe;
+        border-left: 5px solid #1f497d; /* Borda azul sefaz */
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 15px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .insight-title {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: #1e3a8a;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .insight-text {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.84rem;
+        color: #334155;
+        line-height: 1.5;
+        margin: 0;
     }
     """
     css_minificado = "".join([line.strip() for line in css.split("\n")])
@@ -238,12 +266,16 @@ def main() -> None:
         total_pago = df_filtrado["Despesas_Pagas"].sum() if not df_filtrado.empty else 0
         taxa_execucao = (total_pago / total_empenhado * 100) if total_empenhado > 0 else 0
         
+        populacao = df_filtrado["População"].iloc[0] if not df_filtrado.empty else 0
+        pago_per_capita = total_pago / populacao if populacao > 0 else 0
+        
         val_empenhado = formatar_brl(total_empenhado)
         val_pago = formatar_brl(total_pago)
+        val_pago_per_capita = f"{formatar_brl(pago_per_capita)} / hab"
         val_taxa = f"{taxa_execucao:.1f}%"
 
         st.markdown('<div class="chart-title">Indicadores Financeiros</div>', unsafe_allow_html=True)
-        kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
         
         html_card = """
         <div style="background-color:#ffffff; padding:12px 18px; border-radius:12px; border:1px solid #e4e4e7; border-left:5px solid {cor}; box-shadow: 0 1px 2px rgba(0,0,0,0.01);">
@@ -257,17 +289,98 @@ def main() -> None:
         with kpi_col2:
             st.markdown(html_card.format(cor="#00b050", titulo="Total Pago", valor=val_pago), unsafe_allow_html=True)
         with kpi_col3:
+            st.markdown(html_card.format(cor="#7c3aed", titulo="Pago Per Capita", valor=val_pago_per_capita), unsafe_allow_html=True)
+        with kpi_col4:
             st.markdown(html_card.format(cor="#ed7d31", titulo="Taxa de Execução Geral", valor=val_taxa), unsafe_allow_html=True)
 
         st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
 
+        # Cálculo dos dados de ranking para o insight em 1ª pessoa
+        if not df_filtrado.empty:
+            df_ano_capitais = dados[(dados["ano"] == ano_selecionado) & (dados["Nivel"] == nivel_selecionado)]
+            df_ranking_caps = df_ano_capitais.groupby("Capital_Limpa")[["Despesas_Empenhadas", "Despesas_Pagas"]].sum().reset_index()
+            df_ranking_caps["Taxa_Execucao_Caps"] = np.where(
+                df_ranking_caps["Despesas_Empenhadas"] > 0,
+                (df_ranking_caps["Despesas_Pagas"] / df_ranking_caps["Despesas_Empenhadas"] * 100),
+                0.0
+            )
+            df_ranking_caps = df_ranking_caps.sort_values(by="Taxa_Execucao_Caps", ascending=False).reset_index(drop=True)
+            
+            posicao = df_ranking_caps[df_ranking_caps["Capital_Limpa"] == capital_selecionada].index[0] + 1 if capital_selecionada in df_ranking_caps["Capital_Limpa"].values else 0
+            total_caps = len(df_ranking_caps)
+            
+            # Melhores e piores funções/subfunções do município
+            df_contas = df_filtrado.copy()
+            df_contas["Taxa_Conta"] = np.where(
+                df_contas["Despesas_Empenhadas"] > 0,
+                (df_contas["Despesas_Pagas"] / df_contas["Despesas_Empenhadas"] * 100),
+                0.0
+            )
+            df_contas_ativas = df_contas[df_contas["Despesas_Empenhadas"] > 0]
+            
+            melhor_conta_nome, melhor_conta_taxa = "N/A", 0.0
+            pior_conta_nome, pior_conta_taxa = "N/A", 0.0
+            pior_restos_a_pagar = 0.0
+            
+            if not df_contas_ativas.empty:
+                melhor_row = df_contas_ativas.loc[df_contas_ativas["Taxa_Conta"].idxmax()]
+                pior_row = df_contas_ativas.loc[df_contas_ativas["Taxa_Conta"].idxmin()]
+                
+                melhor_conta_nome = melhor_row["Conta"]
+                melhor_conta_taxa = melhor_row["Taxa_Conta"]
+                pior_conta_nome = pior_row["Conta"]
+                pior_conta_taxa = pior_row["Taxa_Conta"]
+                pior_restos_a_pagar = pior_row["Despesas_Empenhadas"] - pior_row["Despesas_Pagas"]
+            
+            def limpar_nome_conta(nome: str) -> str:
+                if " - " in nome:
+                    return nome.split(" - ")[1]
+                return nome
+
+            melhor_nome_clean = limpar_nome_conta(melhor_conta_nome)
+            pior_nome_clean = limpar_nome_conta(pior_conta_nome)
+
+            texto_insight = f"""
+            Ao analisar a execução orçamentária de <b>{capital_selecionada}</b> no exercício de <b>{ano_selecionado}</b>, observei que o município empenhou um total de <b>{val_empenhado}</b> e liquidou efetivamente <b>{val_pago}</b>. Isso representa uma <b>Taxa de Execução Geral de {val_taxa}</b>, posicionando a capital em <b>{posicao}º lugar</b> no ranking de eficiência fiscal entre as {total_caps} capitais brasileiras para este nível. O gasto médio por habitante (per capita) liquidado no período foi de <b>{val_pago_per_capita}</b>.
+            <br><br>
+            Em termos setoriais, analisei que a área de maior eficiência orçamentária foi <b>{melhor_nome_clean}</b>, alcançando <b>{melhor_conta_taxa:.1f}%</b> de execução de seus empenhos. Por outro lado, identifiquei que o principal gargalo de execução concentrou-se em <b>{pior_nome_clean}</b>, cuja taxa de liquidação ficou em apenas <b>{pior_conta_taxa:.1f}%</b>. Esse baixo desempenho na função de <b>{pior_nome_clean}</b> deixou uma sobra de <b>{formatar_brl(pior_restos_a_pagar)}</b> em compromissos não pagos dentro do ano civil, que transitarão como Restos a Pagar, sugerindo entraves licitatórios ou operacionais que demandam atenção da gestão municipal.
+            """
+            
+            st.markdown(f"""
+            <div class="insight-card">
+                <div class="insight-title">💡 Diagnóstico & Insights do Analista</div>
+                <div class="insight-text">{texto_insight}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
+
         # Corpo do Painel: Gráfico de Distribuição Orçamentária ocupando largura total
-        st.markdown('<div class="chart-title">Distribuição Orçamentária por Área</div>', unsafe_allow_html=True)
+        col_title, col_toggle = st.columns([7, 5])
+        with col_title:
+            st.markdown('<div class="chart-title">Distribuição Orçamentária por Área</div>', unsafe_allow_html=True)
+        with col_toggle:
+            visualizacao_tipo = st.radio(
+                "Métrica de Visualização",
+                ["Valores Absolutos", "Valores Per Capita"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="vis_tipo_radio"
+            )
+
         if df_filtrado.empty:
             st.info("Nenhum dado encontrado para os filtros selecionados.")
         else:
             st.markdown('<div class="content-card">', unsafe_allow_html=True)
-            df_ordenado = df_filtrado.sort_values(by="Despesas_Empenhadas", ascending=True)
+            df_ordenado = df_filtrado.copy()
+            
+            if visualizacao_tipo == "Valores Per Capita" and populacao > 0:
+                df_ordenado["Despesas_Empenhadas"] = df_ordenado["Despesas_Empenhadas"] / df_ordenado["População"]
+                df_ordenado["Despesas_Pagas"] = df_ordenado["Despesas_Pagas"] / df_ordenado["População"]
+                suffix_legenda = " (R$ / hab)"
+            else:
+                suffix_legenda = ""
+                
+            df_ordenado = df_ordenado.sort_values(by="Despesas_Empenhadas", ascending=True)
             df_grafico = df_ordenado.melt(
                 id_vars=["Conta"],
                 value_vars=["Despesas_Empenhadas", "Despesas_Pagas"],
@@ -275,7 +388,11 @@ def main() -> None:
                 value_name="Valor"
             )
             df_grafico["Estágio"] = df_grafico["Estágio"].str.replace("_", " ")
-            df_grafico["Valor_Formatado"] = df_grafico["Valor"].map(formatar_brl)
+            
+            if visualizacao_tipo == "Valores Per Capita":
+                df_grafico["Valor_Formatado"] = df_grafico["Valor"].map(lambda x: f"{formatar_brl(x)} / hab")
+            else:
+                df_grafico["Valor_Formatado"] = df_grafico["Valor"].map(formatar_brl)
             
             fig = px.bar(
                 df_grafico,
@@ -285,7 +402,7 @@ def main() -> None:
                 barmode="group",
                 orientation="h",
                 color_discrete_map={"Despesas Empenhadas": "#1f497d", "Despesas Pagas": "#ed7d31"},
-                labels={"Conta": nivel_selecionado, "Valor": "Valor"},
+                labels={"Conta": nivel_selecionado, "Valor": f"Valor{suffix_legenda}"},
                 custom_data=["Valor_Formatado", "Estágio"],
                 height=320 
             )
@@ -303,9 +420,9 @@ def main() -> None:
                     y=1.02, 
                     xanchor="right", 
                     x=1,
-                    font=dict(color="#71717a", size=9)
+                    font=dict(color="#27272a", size=9.5)
                 ),
-                xaxis=dict(gridcolor="#e4e4e7", tickfont=dict(color="#71717a")),
+                xaxis=dict(gridcolor="#e4e4e7", tickfont=dict(color="#27272a")),
                 yaxis=dict(gridcolor="rgba(0,0,0,0)", tickfont=dict(color="#18181b"))
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -366,10 +483,10 @@ def main() -> None:
                         y=1.02, 
                         xanchor="right", 
                         x=1,
-                        font=dict(color="#71717a", size=8)
+                        font=dict(color="#27272a", size=9)
                     ),
-                    xaxis=dict(gridcolor="#e4e4e7", tickmode="linear", tickfont=dict(color="#71717a")),
-                    yaxis=dict(gridcolor="#e4e4e7", range=[0, 110], tickfont=dict(color="#71717a"))
+                    xaxis=dict(gridcolor="#e4e4e7", tickmode="linear", tickfont=dict(color="#27272a")),
+                    yaxis=dict(gridcolor="#e4e4e7", range=[0, 110], tickfont=dict(color="#27272a"))
                 )
                 st.plotly_chart(fig_linha, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -379,9 +496,11 @@ def main() -> None:
             if not df_filtrado.empty:
                 st.markdown('<div class="content-card">', unsafe_allow_html=True)
                 df_tabela = df_filtrado[["Conta", "Despesas_Empenhadas", "Despesas_Pagas"]].copy()
-                df_tabela.columns = [nivel_selecionado, "Empenhado (R$)", "Pago (R$)"]
+                df_tabela["Pago_Per_Capita"] = df_filtrado["Despesas_Pagas"] / df_filtrado["População"]
+                df_tabela.columns = [nivel_selecionado, "Empenhado (R$)", "Pago (R$)", "Pago Per Capita (R$/hab)"]
                 df_tabela["Empenhado (R$)"] = df_tabela["Empenhado (R$)"].map(formatar_brl)
                 df_tabela["Pago (R$)"] = df_tabela["Pago (R$)"].map(formatar_brl)
+                df_tabela["Pago Per Capita (R$/hab)"] = df_tabela["Pago Per Capita (R$/hab)"].map(formatar_brl)
                 st.dataframe(df_tabela, use_container_width=True, hide_index=True, height=230)
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -471,7 +590,7 @@ def main() -> None:
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     margin=dict(l=10, r=10, t=5, b=5),
-                    xaxis=dict(gridcolor="#e4e4e7", tickfont=dict(color="#71717a"), title="Taxa (%)"),
+                    xaxis=dict(gridcolor="#e4e4e7", tickfont=dict(color="#27272a"), title="Taxa (%)"),
                     yaxis=dict(gridcolor="rgba(0,0,0,0)", tickfont=dict(color="#18181b"))
                 )
                 st.plotly_chart(fig_comp, use_container_width=True)
@@ -483,11 +602,14 @@ def main() -> None:
                 
                 # Prepara tabela de detalhes ordenada do melhor para o pior
                 df_comp_tabela = df_comp.sort_values(by="Taxa_Execucao", ascending=False)[
-                    ["Capital_Limpa", "Despesas_Empenhadas", "Despesas_Pagas", "Taxa_Execucao"]
+                    ["Capital_Limpa", "Despesas_Empenhadas", "Despesas_Pagas", "População", "Taxa_Execucao"]
                 ].copy()
-                df_comp_tabela.columns = ["Capital", "Empenhado (R$)", "Pago (R$)", "Taxa (%)"]
+                df_comp_tabela["Pago_Per_Capita"] = df_comp_tabela["Despesas_Pagas"] / df_comp_tabela["População"]
+                df_comp_tabela = df_comp_tabela[["Capital_Limpa", "Despesas_Empenhadas", "Despesas_Pagas", "Pago_Per_Capita", "Taxa_Execucao"]]
+                df_comp_tabela.columns = ["Capital", "Empenhado (R$)", "Pago (R$)", "Pago Per Capita (R$/hab)", "Taxa (%)"]
                 df_comp_tabela["Empenhado (R$)"] = df_comp_tabela["Empenhado (R$)"].map(formatar_brl)
                 df_comp_tabela["Pago (R$)"] = df_comp_tabela["Pago (R$)"].map(formatar_brl)
+                df_comp_tabela["Pago Per Capita (R$/hab)"] = df_comp_tabela["Pago Per Capita (R$/hab)"].map(formatar_brl)
                 df_comp_tabela["Taxa (%)"] = df_comp_tabela["Taxa (%)"].map(lambda x: f"{x:.1f}%")
                 
                 st.dataframe(df_comp_tabela, use_container_width=True, hide_index=True, height=580)
